@@ -170,6 +170,65 @@ class Check(unittest.TestCase):
         self.assertIn("probe-skipped", codes(r.findings, "info"))
 
 
+
+REST_CARD = copy.deepcopy(GOOD)
+REST_CARD["supportedInterfaces"] = [{"url": "https://example.com/a2a/rest/",
+                                     "protocolBinding": "HTTP+JSON", "protocolVersion": "1.0"}]
+NOT_FOUND_BODY = {"error": {"code": 404, "status": "NOT_FOUND", "message": "Task not found",
+                            "details": [{"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                                         "reason": "TASK_NOT_FOUND", "domain": "a2a-protocol.org"}]}}
+
+
+class RestProbe(unittest.TestCase):
+    def run_probe(self, answer, status, card=REST_CARD):
+        routes = {("GET", URL): resp(URL, card)}
+        calls = []
+
+        def fetcher(url, method="GET", headers=None, content=None):
+            calls.append((method, url, headers, content))
+            if url == URL:
+                return routes[("GET", URL)]
+            return resp(url, answer, status=status)
+        return calls, check("example.com", probe=True, fetcher=fetcher)
+
+    def test_a_conforming_answer(self):
+        calls, r = self.run_probe(NOT_FOUND_BODY, 404)
+        method, url, headers, body = calls[1]
+        self.assertEqual(method, "GET")
+        self.assertRegex(url, r"^https://example\.com/a2a/rest/tasks/a2a-agent-checker-[0-9a-f-]+$")
+        self.assertEqual(headers["A2A-Version"], "1.0")
+        self.assertIsNone(body)
+        self.assertIn("probe-ok", codes(r.findings, "info"))
+        self.assertEqual(r.verdict, "pass")
+
+    def test_the_tenant_prefixes_the_path(self):
+        card = copy.deepcopy(REST_CARD)
+        card["supportedInterfaces"][0]["tenant"] = "acme/eu"
+        calls, _ = self.run_probe(NOT_FOUND_BODY, 404, card)
+        self.assertIn("/a2a/rest/acme%2Feu/tasks/", calls[1][1])
+
+    def test_a_bare_404_cannot_tell_a_missing_task_from_a_missing_route(self):
+        for body in (b"", b"<html>Not Found</html>", {"detail": "Not Found"},
+                     {"error": {"code": 404, "details": [{"@type": "x", "reason": "TASK_NOT_FOUND"}]}}):
+            _, r = self.run_probe(body, 404)
+            self.assertIn("probe-bare-404", codes(r.findings, "warn"), body)
+
+    def test_other_outcomes(self):
+        for status, code, level in ((200, "probe-found-task", "warn"),
+                                    (401, "probe-auth", "info"),
+                                    (405, "probe-no-gettask", "warn"),
+                                    (500, "probe-odd-error", "warn")):
+            _, r = self.run_probe({"id": "x"}, status)
+            self.assertIn(code, codes(r.findings, level), status)
+
+    def test_grpc_is_skipped(self):
+        card = copy.deepcopy(REST_CARD)
+        card["supportedInterfaces"][0]["protocolBinding"] = "GRPC"
+        calls, r = self.run_probe(NOT_FOUND_BODY, 404, card)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("probe-skipped", codes(r.findings, "info"))
+
+
 class FetchRules(unittest.TestCase):
     def test_url_rules(self):
         for url in ("http://example.com/x", "https://example.com:8443/x",

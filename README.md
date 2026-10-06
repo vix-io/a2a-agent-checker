@@ -28,10 +28,20 @@ pip install git+https://github.com/vix-io/a2a-agent-checker
 - Common mistakes: a 0.3-era card (top-level `url`, `preferredTransport`),
   snake_case keys, an endpoint on a different host from the card.
 
-With `--probe` it also calls each JSON-RPC endpoint with `GetTask` for a
-random task id. A conforming agent answers `-32001` (TaskNotFound). This is
-the most harmless call A2A defines: nothing is created or run on the other
-side. The checker never sends `SendMessage`.
+With `--probe` it also asks each endpoint on the card's own host for a task
+that cannot exist (`GetTask` with a random id):
+
+- **JSONRPC**: a conforming agent answers error `-32001` (TaskNotFound).
+- **HTTP+JSON**: `GET {url}/tasks/{id}` (with the interface's `tenant`
+  prefixed when set); a conforming agent answers HTTP 404 with a
+  `google.rpc.Status` body whose `ErrorInfo.reason` is `TASK_NOT_FOUND`. A
+  bare 404 is reported as a warning, since it is also what a server returns
+  for a route that does not exist.
+- **GRPC** is not probed.
+
+This is the most harmless call A2A defines: nothing is created or run on the
+other side. The checker never sends `SendMessage`, and never probes an
+endpoint on a different host from the card.
 
 Card signatures are reported but not yet verified.
 

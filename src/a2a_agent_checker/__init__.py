@@ -3,4 +3,4 @@ from .card import Finding, validate
 from .check import Report, check
 
 __all__ = ["Finding", "Report", "check", "validate"]
-__version__ = "0.1.2"
+__version__ = "0.2.0"
