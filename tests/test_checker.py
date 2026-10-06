@@ -161,6 +161,14 @@ class Check(unittest.TestCase):
             _, r = self.probe(answer, status)
             self.assertIn(code, codes(r.findings), code)
 
+    def test_an_endpoint_on_another_host_is_not_probed(self):
+        card = copy.deepcopy(GOOD)
+        card["supportedInterfaces"][0]["url"] = "https://victim.example/hook"
+        f = fake_fetcher({("GET", URL): resp(URL, card)})
+        r = check("example.com", probe=True, fetcher=f)
+        self.assertEqual([c[0] for c in f.calls], ["GET"])
+        self.assertIn("probe-skipped", codes(r.findings, "info"))
+
 
 class FetchRules(unittest.TestCase):
     def test_url_rules(self):

@@ -26,7 +26,7 @@ import httpx
 TIMEOUT_S = 10.0
 MAX_BYTES = 256 * 1024
 MAX_REDIRECTS = 3
-USER_AGENT = "a2a-agent-checker/0.1 (+https://github.com/vix-io/a2a-agent-checker)"
+USER_AGENT = "a2a-agent-checker/0.1.1 (+https://github.com/vix-io/a2a-agent-checker)"
 
 
 class FetchRefused(Exception):

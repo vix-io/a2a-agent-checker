@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 from . import card as cardmod
 from .card import Finding
@@ -111,6 +112,14 @@ def check(target: str, *, probe: bool = False, fetcher=fetch) -> Report:
         if not jsonrpc:
             report.findings.append(Finding("info", "probe-skipped",
                                            "no JSONRPC interface to probe"))
+        card_host = (urlsplit(r.url).hostname or "").lower()
         for iface in jsonrpc:
+            # A card can name any URL as its endpoint, so probing it blindly
+            # would let whoever writes a card make this checker POST to a
+            # third party. Only the card's own host is probed.
+            if (urlsplit(iface["url"]).hostname or "").lower() != card_host:
+                report.findings.append(Finding("info", "probe-skipped",
+                                               f"not probing {iface['url']}: it is not on {card_host}"))
+                continue
             report.findings += _probe(iface, fetcher)
     return report

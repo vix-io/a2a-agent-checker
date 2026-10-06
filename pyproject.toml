@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "a2a-agent-checker"
-version = "0.1.0"
+version = "0.1.1"
 description = "Check a domain's A2A Agent Card against the v1.0 specification."
 readme = "README.md"
 license = "Apache-2.0"
