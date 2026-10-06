@@ -89,7 +89,7 @@ def check(target: str, *, probe: bool = False, fetcher=fetch) -> Report:
         return report
     if r.redirects:
         report.findings.append(Finding("warn", "redirected",
-                                       f"the card was served after {len(r.redirects)} redirect(s), from {r.url}"))
+                                       f"the card is only reachable through {len(r.redirects)} redirect(s); it is served at {r.url}"))
     if r.status == 404:
         report.findings.append(Finding("fail", "no-card", f"no Agent Card at {url} (HTTP 404)"))
         return report
