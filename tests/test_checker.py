@@ -254,6 +254,28 @@ class FetchRules(unittest.TestCase):
         self.assertEqual(fetchmod._public_ips("example.com", self.resolver("93.184.216.34")),
                          ["93.184.216.34"])
 
+    def test_ipv4_is_tried_before_ipv6(self):
+        # "2a09:…" sorts before "66.…" as a string; a v6-first connect fails
+        # outright on a machine with no IPv6 route.
+        self.assertEqual(
+            fetchmod._public_ips("example.com", self.resolver("2a09:8280:1::1b8", "66.241.125.65")),
+            ["66.241.125.65", "2a09:8280:1::1b8"])
+
+    def test_a_failed_connect_moves_to_the_next_address(self):
+        import httpx
+        seen = []
+
+        def handler(request):
+            seen.append(request.url.host)
+            if request.url.host == "93.184.216.34":
+                raise httpx.ConnectError("unreachable")
+            return httpx.Response(200, json=GOOD)
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        r = fetchmod.fetch(URL, client=client,
+                           resolver=self.resolver("93.184.216.34", "93.184.216.35"))
+        self.assertEqual(r.status, 200)
+        self.assertEqual(seen, ["93.184.216.34", "93.184.216.35"])
+
     def test_the_connection_goes_to_the_checked_address(self):
         import httpx
         seen = []

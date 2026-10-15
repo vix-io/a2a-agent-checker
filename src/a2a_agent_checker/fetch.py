@@ -26,7 +26,7 @@ import httpx
 TIMEOUT_S = 10.0
 MAX_BYTES = 256 * 1024
 MAX_REDIRECTS = 3
-USER_AGENT = "a2a-agent-checker/0.2.0 (+https://github.com/vix-io/a2a-agent-checker)"
+USER_AGENT = "a2a-agent-checker/0.2.1 (+https://github.com/vix-io/a2a-agent-checker)"
 
 
 class FetchRefused(Exception):
@@ -47,7 +47,9 @@ def _public_ips(host: str, resolver=socket.getaddrinfo) -> list[str]:
         infos = resolver(host, 443, type=socket.SOCK_STREAM)
     except socket.gaierror as e:
         raise FetchRefused(f"{host} does not resolve ({e})") from None
-    ips = sorted({info[4][0] for info in infos})
+    # IPv4 first: a host with both is reachable over v4 from almost anywhere,
+    # and a machine with no IPv6 route fails a v6-first connect outright.
+    ips = sorted({info[4][0] for info in infos}, key=lambda ip: (":" in ip, ip))
     if not ips:
         raise FetchRefused(f"{host} does not resolve")
     for ip in ips:
@@ -85,15 +87,23 @@ def check_url(url: str) -> tuple[str, str]:
 def _one(client: httpx.Client, method: str, url: str, *, headers, content,
          resolver) -> Response:
     host, path = check_url(url)
-    ip = _public_ips(host, resolver)[0]
-    target = f"https://{'[' + ip + ']' if ':' in ip else ip}{path}"
-    request = client.build_request(
-        method, target, content=content,
-        headers={"Host": host, "User-Agent": USER_AGENT, **(headers or {})},
-        extensions={"sni_hostname": host, "timeout": {
-            "connect": TIMEOUT_S, "read": TIMEOUT_S, "write": TIMEOUT_S, "pool": TIMEOUT_S}},
-    )
-    response = client.send(request, stream=True)
+    ips = _public_ips(host, resolver)
+    for n, ip in enumerate(ips):
+        target = f"https://{'[' + ip + ']' if ':' in ip else ip}{path}"
+        request = client.build_request(
+            method, target, content=content,
+            headers={"Host": host, "User-Agent": USER_AGENT, **(headers or {})},
+            extensions={"sni_hostname": host, "timeout": {
+                "connect": TIMEOUT_S, "read": TIMEOUT_S, "write": TIMEOUT_S, "pool": TIMEOUT_S}},
+        )
+        try:
+            response = client.send(request, stream=True)
+            break
+        except httpx.ConnectError:
+            # Only a failed connect moves on: nothing was sent, so trying the
+            # next of the host's own (already vetted) addresses is safe.
+            if n == len(ips) - 1:
+                raise
     try:
         body = bytearray()
         for chunk in response.iter_bytes():
