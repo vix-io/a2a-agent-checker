@@ -62,6 +62,33 @@ def _snake_keys(obj, path="") -> list[str]:
     return found
 
 
+VERSIONED = re.compile(r"/v\d+(\.\d+)*/?$")
+
+
+def _extensions(exts, warn, info) -> None:
+    """Spec 4.6: each declaration names its extension by URI, and a breaking
+    change must get a new URI, so the version belongs in it (4.6.3)."""
+    if not isinstance(exts, list):
+        warn("extension-malformed", "'capabilities.extensions' must be a list")
+        return
+    for i, ext in enumerate(exts, 1):
+        if not isinstance(ext, dict):
+            warn("extension-malformed", f"extension {i} is not an object")
+            continue
+        uri = ext.get("uri")
+        p = urlsplit(uri) if isinstance(uri, str) else None
+        if not p or not p.scheme or not (p.netloc or p.scheme == "urn"):
+            warn("extension-malformed", f"extension {i} has no absolute 'uri'")
+            continue
+        if "required" in ext and not isinstance(ext["required"], bool):
+            warn("extension-malformed", f"{uri}: 'required' must be true or false")
+        if not VERSIONED.search(p.path or ""):
+            info("extension-unversioned", f"{uri} carries no version in its path; "
+                 "a breaking change then has no new URI to move to (4.6.3)")
+        req = " (required)" if ext.get("required") is True else ""
+        info("extension", f"declares {uri}{req}")
+
+
 def validate(card, card_url: str | None = None) -> list[Finding]:
     out: list[Finding] = []
     fail = lambda c, m: out.append(Finding("fail", c, m))
@@ -89,6 +116,8 @@ def validate(card, card_url: str | None = None) -> list[Finding]:
 
     if "capabilities" in card and not isinstance(card["capabilities"], dict):
         fail("bad-type", "'capabilities' must be an object")
+    elif isinstance(card.get("capabilities"), dict) and "extensions" in card["capabilities"]:
+        _extensions(card["capabilities"]["extensions"], warn, info)
 
     for k in ("defaultInputModes", "defaultOutputModes"):
         if k in card:

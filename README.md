@@ -50,6 +50,11 @@ invalid or unverifiable. EdDSA, ES256/384/512, RS256/384/512 and
 PS256/384/512. A key published on the card's own host proves the card is
 unaltered, not who signed it, and the finding says so.
 
+Declared extensions (spec 4.6) are listed, and a declaration with no
+absolute `uri`, or a non-boolean `required`, is a warning. A URI with no
+version in its path is pointed out, since a breaking change then has no new
+URI to move to.
+
 ## Results
 
 Each finding is `fail` (a v1.0 client cannot use the card), `warn` (usable,
