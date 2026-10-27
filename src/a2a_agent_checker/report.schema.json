@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/vix-io/a2a-agent-checker/blob/main/src/a2a_agent_checker/report.schema.json",
+  "title": "a2a-check --json output",
+  "description": "One report per target, in the order given. Finding codes are stable identifiers; new codes may be added in a minor release, so a consumer should treat an unknown code by its level.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["domain", "card_url", "verdict", "agent", "findings"],
+    "additionalProperties": false,
+    "properties": {
+      "domain": {"type": "string", "description": "the target as given"},
+      "card_url": {"type": "string", "description": "the Agent Card URL that was fetched"},
+      "verdict": {"enum": ["pass", "warn", "fail"], "description": "fail if any finding fails, else warn if any warns, else pass"},
+      "agent": {"type": ["string", "null"], "description": "the card's name, or null when no card was read"},
+      "findings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["level", "code", "message"],
+          "additionalProperties": false,
+          "properties": {
+            "level": {"enum": ["fail", "warn", "info"], "description": "fail: a v1.0 client cannot use the card; warn: usable but something will trip a client; info: true and not a fault"},
+            "code": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
+            "message": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}

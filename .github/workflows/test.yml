@@ -1,0 +1,24 @@
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+        extras: ["", "[signatures]"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install ".${{ matrix.extras }}"
+      # The signature tests sign their own fixtures with cryptography, so the
+      # plain run installs it for the tests alone: the package under test is
+      # still the one without the extra, which is what exercises the
+      # "install a2a-agent-checker[signatures]" path.
+      - run: pip install cryptography
+        if: matrix.extras == ''
+      - run: python -m unittest discover -s tests -v

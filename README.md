@@ -1,5 +1,7 @@
 # a2a-agent-checker
 
+[![test](https://github.com/vix-io/a2a-agent-checker/actions/workflows/test.yml/badge.svg)](https://github.com/vix-io/a2a-agent-checker/actions/workflows/test.yml)
+
 Check a domain's [A2A](https://a2a-protocol.org) Agent Card against the v1.0
 specification.
 
@@ -13,8 +15,11 @@ stillopen.work: PASS  (StillOpen)
 ## Install
 
 ```
-pip install git+https://github.com/vix-io/a2a-agent-checker
+pip install a2a-agent-checker               # card and endpoint checks
+pip install "a2a-agent-checker[signatures]" # also verifies card signatures
 ```
+
+There is also an online version at https://stillopen.work/agents/check.
 
 ## What it checks
 
@@ -59,7 +64,11 @@ URI to move to.
 
 Each finding is `fail` (a v1.0 client cannot use the card), `warn` (usable,
 but something will trip a client or a person) or `info`. The exit status is
-1 if any domain fails, otherwise 0. `--json` prints machine-readable output.
+1 if any domain fails, otherwise 0. `--json` prints machine-readable output,
+described by the JSON Schema that `a2a-check --schema` prints
+(`src/a2a_agent_checker/report.schema.json`). Finding codes are stable
+identifiers; new ones may appear in a minor release, so treat an unknown code
+by its level.
 
 ## Library
 

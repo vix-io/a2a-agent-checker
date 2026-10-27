@@ -1,4 +1,5 @@
 """a2a-check DOMAIN [DOMAIN ...] [--probe] [--json]
+a2a-check --schema
 
 Exit status: 0 if every domain passes or only warns, 1 if any fails,
 2 for a usage error.
@@ -11,17 +12,29 @@ import sys
 
 from .check import check
 
+def schema_text() -> str:
+    from importlib.resources import files
+    return files("a2a_agent_checker").joinpath("report.schema.json").read_text()
+
+
 MARK = {"fail": "FAIL", "warn": "warn", "info": "info"}
 
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="a2a-check",
                                 description="Check a domain's A2A Agent Card against v1.0.")
-    p.add_argument("targets", nargs="+", help="a domain (example.com) or a full card URL")
+    p.add_argument("targets", nargs="*", help="a domain (example.com) or a full card URL")
     p.add_argument("--probe", action="store_true",
                    help="also call GetTask for a random id on each JSONRPC endpoint (read-only)")
     p.add_argument("--json", action="store_true", help="print JSON instead of text")
+    p.add_argument("--schema", action="store_true",
+                   help="print the JSON Schema of the --json output and exit")
     args = p.parse_args(argv)
+    if args.schema:
+        print(schema_text())
+        return 0
+    if not args.targets:
+        p.error("give at least one domain or card URL")
 
     reports = [check(t, probe=args.probe) for t in args.targets]
     if args.json:

@@ -54,7 +54,10 @@ class Report:
 
     def as_dict(self) -> dict:
         return {"domain": self.domain, "card_url": self.card_url, "verdict": self.verdict,
-                "agent": (self.card or {}).get("name"),
+                # A card that parsed as a list or a string has no name; `.get`
+                # on it would crash the --json output for every target.
+                "agent": self.card.get("name") if isinstance(self.card, dict)
+                and isinstance(self.card.get("name"), str) else None,
                 "findings": [f.as_dict() for f in self.findings]}
 
 
