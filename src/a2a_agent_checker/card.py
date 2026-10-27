@@ -11,7 +11,8 @@ Three levels, and the line between them is the point:
 * **warn** - usable, but something a client or a person will trip on: a
   0.3-era field, an interface on another host, a duplicate skill id.
 * **info** - true and worth saying, and not a fault: a signature present
-  (we do not verify it), an optional field absent.
+  an optional field absent. Signatures are verified in `signatures.py`,
+  which needs the network to fetch the key.
 """
 from __future__ import annotations
 
@@ -161,6 +162,4 @@ def validate(card, card_url: str | None = None) -> list[Finding]:
         info("no-provider", "no 'provider' - nothing says who operates this agent")
     if "documentationUrl" not in card:
         info("no-docs", "no 'documentationUrl'")
-    if card.get("signatures"):
-        info("signed", "the card carries signatures; this checker does not verify them yet")
     return out

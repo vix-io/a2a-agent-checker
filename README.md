@@ -43,7 +43,12 @@ This is the most harmless call A2A defines: nothing is created or run on the
 other side. The checker never sends `SendMessage`, and never probes an
 endpoint on a different host from the card.
 
-Card signatures are reported but not yet verified.
+Card signatures (spec 8.4) are verified when `cryptography` is installed
+(`pip install "a2a-agent-checker[signatures]"`): the key is fetched from the
+`jku` in each signature's header, and each signature is reported as valid,
+invalid or unverifiable. EdDSA, ES256/384/512, RS256/384/512 and
+PS256/384/512. A key published on the card's own host proves the card is
+unaltered, not who signed it, and the finding says so.
 
 ## Results
 

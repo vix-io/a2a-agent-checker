@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from . import card as cardmod
+from . import signatures
 from .card import Finding
 from .fetch import FetchRefused, fetch
 
@@ -180,6 +181,8 @@ def check(target: str, *, probe: bool = False, fetcher=fetch) -> Report:
         report.findings.append(Finding("fail", "not-json", f"the card is not valid JSON ({e})"))
         return report
     report.findings += cardmod.validate(report.card, r.url)
+    if isinstance(report.card, dict):
+        report.findings += signatures.verify(report.card, r.url, fetcher)
     if probe and isinstance(report.card, dict):
         ifaces = [i for i in report.card.get("supportedInterfaces") or []
                   if isinstance(i, dict) and isinstance(i.get("url"), str)
