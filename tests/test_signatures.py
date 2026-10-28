@@ -95,6 +95,18 @@ class Verify(unittest.TestCase):
         f = [x for x in run(signed(GOOD, "EdDSA", sign), [jwk]) if x.code == "signature-valid"]
         self.assertIn("not who signed it", f[0].message)
 
+    def test_a_card_signed_with_its_empty_fields_kept_is_noncanonical_not_invalid(self):
+        card = {**GOOD, "capabilities": {**GOOD["capabilities"], "extensions": []}}
+        sign, jwk = make_key("EdDSA")
+        header = {"alg": "EdDSA", "typ": "JOSE", "kid": "k1", "jku": JKU}
+        protected = b64(json.dumps(header).encode())
+        served = json.dumps(card, sort_keys=True, separators=(",", ":")).encode()
+        sig = sign(f"{protected}.{b64(served)}".encode())
+        f = run({**card, "signatures": [{"protected": protected, "signature": b64(sig)}]}, [jwk])
+        self.assertIn("signature-noncanonical", codes(f, "warn"))
+        self.assertNotIn("signature-invalid", codes(f))
+        self.assertNotIn("signature-valid", codes(f))
+
     def test_unknown_kid_no_jku_bad_jwks_and_unknown_alg_are_unverifiable(self):
         sign, jwk = make_key("EdDSA")
         cases = [

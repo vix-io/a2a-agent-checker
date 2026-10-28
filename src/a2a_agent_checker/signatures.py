@@ -85,6 +85,16 @@ def signing_payload(card: dict) -> bytes:
     return jcs(_drop_empty(body)).encode()
 
 
+def served_payload(card: dict) -> bytes:
+    """The card as served, empty fields kept. Not the spec's form (8.4.1
+    drops them), but what many signers sign: measured 2026-10-28 over the
+    a2aregistry.org cards, 13 of 29 verifiable signatures verify only this
+    way. Accepting it silently would hide that a strict verifier rejects
+    them; rejecting it outright called them tampered, which they are not."""
+    body = {k: v for k, v in card.items() if k != "signatures"}
+    return jcs(body).encode()
+
+
 _HASH = {"256": "SHA256", "384": "SHA384", "512": "SHA512"}
 _CURVE = {"ES256": ("P-256", 32), "ES384": ("P-384", 48), "ES512": ("P-521", 66)}
 ALGORITHMS = ("EdDSA", "ES256", "ES384", "ES512", "RS256", "RS384", "RS512",
@@ -132,6 +142,7 @@ def verify(card: dict, card_url: str, fetcher) -> list[Finding]:
                         f"{len(sigs)} signature(s) present; install "
                         "a2a-agent-checker[signatures] to verify them")]
     payload = b64u(signing_payload(card))
+    served = b64u(served_payload(card))
     card_host = (urlsplit(card_url).hostname or "").lower()
     jwks_cache: dict[str, list | str] = {}
 
@@ -190,9 +201,19 @@ def verify(card: dict, card_url: str, fetcher) -> list[Finding]:
         try:
             _verify(alg, jwk, raw_sig, f"{sig['protected']}.{payload}".encode())
         except InvalidSignature:
-            out.append(Finding("warn", "signature-invalid",
-                               f"{label} does not match this card: it was changed after "
-                               "signing, or signed over a different canonical form"))
+            try:
+                if served == payload:
+                    raise InvalidSignature()
+                _verify(alg, jwk, raw_sig, f"{sig['protected']}.{served}".encode())
+            except InvalidSignature:
+                out.append(Finding("warn", "signature-invalid",
+                                   f"{label} does not match this card: it was changed after "
+                                   "signing, or signed over a different canonical form"))
+                continue
+            out.append(Finding("warn", "signature-noncanonical",
+                               f"{label} verifies over the card as served, not over the "
+                               "spec's canonical form, which drops empty fields (8.4.1); "
+                               "the card is unaltered, but a strict verifier will reject it"))
             continue
         except (ValueError, KeyError, TypeError) as e:
             unverifiable(f"the key does not fit the algorithm ({e})")

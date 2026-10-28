@@ -51,7 +51,10 @@ endpoint on a different host from the card.
 Card signatures (spec 8.4) are verified when `cryptography` is installed
 (`pip install "a2a-agent-checker[signatures]"`): the key is fetched from the
 `jku` in each signature's header, and each signature is reported as valid,
-invalid or unverifiable. EdDSA, ES256/384/512, RS256/384/512 and
+invalid or unverifiable. A signature that verifies only over the card as
+served, with its empty fields kept (the spec's canonical form drops them), is
+reported as `signature-noncanonical`: the card is unaltered, but a strict
+verifier will reject it. EdDSA, ES256/384/512, RS256/384/512 and
 PS256/384/512. A key published on the card's own host proves the card is
 unaltered, not who signed it, and the finding says so.
 
